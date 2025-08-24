@@ -44,6 +44,10 @@ from tabulate import tabulate  # pip install tabulate
 from zoneinfo import ZoneInfo  # Python 3.9+
 import os
 from dotenv import load_dotenv  # pip install python-dotenv
+import smtplib                # librería estándar para hablar con servidores SMTP (enviar correos)
+import mimetypes              # para adivinar el tipo de archivo de los adjuntos
+from email.message import EmailMessage  # clase para construir emails completos (texto + adjuntos)
+
 
 load_dotenv()  # carga variables de .env si existe
 
@@ -232,18 +236,43 @@ def get_band_data(auth_info: dict, from_date: str, to_date: str, output_file: st
 
     return rows
 
-def analyze_with_openai_from_rows(rows: list[dict], window_label: str, model: str = "gpt-4o-mini") -> str:
+def analyze_with_openai_from_rows(
+    rows: list[dict],
+    window_label: str,
+    model: str = "gpt-4o-mini",
+) -> str:
     """
-    Envía la lista de 'rows' (tal cual la devuelve get_band_data) a OpenAI
-    y devuelve un análisis conciso en español.
-    Requiere la variable de entorno OPENAI_API_KEY con tu clave.
+    OBJETIVO:
+      - Tomar las filas exportadas (rows) y pedir a OpenAI un informe semanal en texto.
+      - DEVUELVE un string (el informe) o "" si no hay clave/errores.
+
+    CÓMO LO HACE (resumen):
+      1) Lee tu clave de OpenAI desde la variable de entorno OPENAI_API_KEY (no se hardcodea).
+      2) Define un "system prompt": es el rol/instrucciones fijas para el modelo (qué debe hacer y cómo).
+      3) Empaqueta TUS DATOS (rows + etiqueta de ventana) como contenido del "user".
+      4) Llama al endpoint REST /v1/chat/completions con requests.
+      5) Extrae el texto de la respuesta y lo devuelve.
+
+    NOTAS:
+      - Para "ver qué hemos enviado", OpenAI NO muestra el payload en el dashboard.
+        *Puedes verlo tú guardando una copia local del request/response (ver DEBUG más abajo).*
+      - En el panel de OpenAI sí podrás ver USAGE (tokens por día/modelo).
     """
+    import os, json
+    import requests
+
+    # === 1) Seguridad: leer la API key del entorno ===
+    #   - Nunca imprimas la clave. Si no está, seguimos el script sin análisis.
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         print("[openai] Falta OPENAI_API_KEY en el entorno. Salto análisis.")
         return ""
 
-    # Instrucciones al modelo: qué columnas hay y qué debe producir
+    # === (Opcional) DEBUG: si pones OPENAI_DEBUG=1 en tu .env, guardamos request/response en disco ===
+    debug = str(os.getenv("OPENAI_DEBUG", "0")).lower() in ("1", "true", "yes")
+
+    # === 2) System prompt: le dice al modelo "quién es" y QUÉ debe producir ===
+    #   - Aquí fijas el comportamiento (coach de sueño) y el formato que quieres en la salida.
     system_prompt = (
         "Eres un coach de sueño. Analiza una lista de diccionarios con las claves: "
         "date, deepSleepTime, shallowSleepTime, wakeTime, start, stop, REMTime, naps. "
@@ -253,35 +282,158 @@ def analyze_with_openai_from_rows(rows: list[dict], window_label: str, model: st
         "3) 3–5 recomendaciones accionables. Sé preciso y usa cifras."
     )
 
-    # Metemos los datos tal cual
+    # === 3) Payload de USUARIO: tus datos reales que el modelo debe analizar ===
+    #   - Enviamos la 'ventana' (texto tipo "Semana 2025-08-18 a 2025-08-24") y las filas.
+    #   - json.dumps con ensure_ascii=False mantiene tildes/ñ correctamente.
     user_payload = {
         "ventana": window_label,
-        "rows": rows
+        "rows": rows,  # lista de dicts: [{"date": "...", "deepSleepTime": ..., ...}, ...]
     }
 
-    url = "https://api.openai.com/v1/chat/completions"
+    # === 4) Construcción de la llamada HTTP ===
+    url = "https://api.openai.com/v1/chat/completions"  # endpoint Chat Completions
     headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+        "Authorization": f"Bearer {api_key}",  # pasa tu clave en el header
+        "Content-Type": "application/json",
     }
     body = {
-        "model": model,
+        "model": model,      # modelo a usar (puedes cambiarlo desde el argumento de la función)
         "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}
+            {"role": "system", "content": system_prompt},                           # instrucciones
+            {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}  # tus datos
         ],
-        "temperature": 0.2
+        "temperature": 0.2,  # baja = más determinista; sube si quieres más creatividad
+        # "top_p": 1.0,      # (opcional) muestreo por núcleo; normalmente no hace falta tocarlo
     }
 
+    # Guarda el request si está activado el modo DEBUG (para poder "ver" lo enviado)
+    if debug:
+        try:
+            with open("openai_request.json", "w", encoding="utf-8") as f:
+                json.dump({"url": url, "headers": {"Content-Type": "application/json", "Authorization": "Bearer ***redacted***"},
+                           "body": body}, f, ensure_ascii=False, indent=2)
+        except Exception as _:
+            pass
+
+    # === 5) Hacer la petición y manejar errores de red/HTTP ===
     try:
         resp = requests.post(url, headers=headers, json=body, timeout=60)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+        request_id = resp.headers.get("x-request-id")  # útil para soporte/diagnóstico
+        resp.raise_for_status()  # lanza error si HTTP != 2xx
+
+        data = resp.json()
+
+        # Guarda la respuesta cruda si DEBUG
+        if debug:
+            try:
+                with open("openai_response.json", "w", encoding="utf-8") as f:
+                    json.dump({"request_id": request_id, "response": data}, f, ensure_ascii=False, indent=2)
+            except Exception as _:
+                pass
+
+        # === 6) Extraer el texto del mensaje del asistente ===
+        # Estructura típica: {"choices":[{"message":{"content": "..."}}, ...]}
+        content = (
+            data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+        )
+
+        # Limpieza final
+        return (content or "").strip()
+
     except requests.HTTPError as e:
-        print(f"[openai] HTTP {e.response.status_code}: {e.response.text[:200]}")
+        # Muestra código HTTP y un trozo del cuerpo para diagnosticar, sin claves
+        snippet = ""
+        try:
+            snippet = resp.text[:400]
+        except Exception:
+            pass
+        print(f"[openai] HTTP {getattr(e.response,'status_code', '???')}: {snippet}")
     except Exception as e:
         print(f"[openai] Error: {e}")
+
+    # Si algo falla, devolvemos string vacío (el resto del script sigue)
     return ""
+
+
+def send_email(subject: str, body: str, to_addrs, attachments: list[str] | None = None) -> bool:
+    """
+    Envía un email con asunto, cuerpo de texto y opcionalmente adjuntos.
+    Usa las variables de entorno SMTP_* y MAIL_* para configuración.
+
+    subject:    Asunto del email
+    body:       Texto del mensaje (se envía como plain text)
+    to_addrs:   Destinatario(s). Puede ser un string ("a@x.com") o lista.
+    attachments: Lista de rutas de archivos a adjuntar (CSV, MD, etc.)
+    Devuelve True si se envió con éxito, False si hubo error.
+    """
+
+    # --- 1. Leer credenciales y configuración desde variables de entorno ---
+    host = os.getenv("SMTP_HOST")       # Servidor SMTP (ej: smtp.gmail.com)
+    port = int(os.getenv("SMTP_PORT", "465"))  # Puerto (465=SSL, 587=STARTTLS)
+    user = os.getenv("SMTP_USER")       # Usuario (normalmente tu email)
+    password = os.getenv("SMTP_PASS")   # Contraseña de aplicación (16 chars de Google)
+    from_addr = os.getenv("MAIL_FROM", user)  # Dirección remitente (lo que verá el receptor)
+
+    # --- 2. Normalizar destinatarios (acepta string o lista) ---
+    if isinstance(to_addrs, str):
+        to_addrs_list = [a.strip() for a in to_addrs.split(",") if a.strip()]
+    else:
+        to_addrs_list = to_addrs or []
+
+    # --- 3. Validar que no falta nada crítico ---
+    if not all([host, port, user, password, from_addr]) or not to_addrs_list:
+        print("❌ Faltan SMTP_HOST/PORT/USER/PASS/MAIL_FROM o MAIL_TO en .env")
+        return False
+
+    # --- 4. Construir el mensaje ---
+    msg = EmailMessage()
+    msg["From"] = from_addr                # Quién lo envía
+    msg["To"] = ", ".join(to_addrs_list)   # A quién va
+    msg["Subject"] = subject               # Asunto
+    msg.set_content(body)                   # Texto plano del mensaje
+
+    # --- 5. Adjuntar archivos (si los hay) ---
+    for path in (attachments or []):
+        try:
+            # Detectar tipo de archivo (text/csv, text/markdown, etc.)
+            ctype, _ = mimetypes.guess_type(path)
+            if not ctype:
+                ctype = "application/octet-stream"  # si no lo detecta, genérico binario
+            maintype, subtype = ctype.split("/", 1)
+
+            # Abrir archivo y añadir como adjunto
+            with open(path, "rb") as f:
+                msg.add_attachment(
+                    f.read(),
+                    maintype=maintype,
+                    subtype=subtype,
+                    filename=os.path.basename(path)
+                )
+        except Exception as e:
+            print(f"⚠️ No pude adjuntar {path}: {e}")
+
+    # --- 6. Conectarse al servidor y enviar ---
+    try:
+        if port == 465:
+            # Caso típico Gmail → conexión SSL directa
+            with smtplib.SMTP_SSL(host, port, timeout=60) as s:
+                s.login(user, password)     # autenticación con usuario y app password
+                s.send_message(msg)         # envío del email completo
+        else:
+            # Caso STARTTLS (puerto 587)
+            with smtplib.SMTP(host, port, timeout=60) as s:
+                s.starttls()                # eleva a conexión segura
+                s.login(user, password)
+                s.send_message(msg)
+
+        print("✉️  Email enviado correctamente.")
+        return True
+
+    except Exception as e:
+        print(f"❌ Error enviando email: {e}")
+        return False
 
 
 def main():
@@ -303,6 +455,16 @@ def main():
         print("\n[AI] Análisis semanal (OpenAI):\n")
         print(analysis)
         print("\n[AI] Informe guardado en sleep_report_ai.md")
+
+
+    subject = f"Informe de sueño Zepp — {window_label}"
+    body = (analysis or f"(Sin análisis de IA)\nSe exportaron {len(rows)} filas del {FROM} al {TO}.")
+    attachments = ["sleep_export.csv"]
+    if os.path.exists("sleep_report_ai.md"):
+        attachments.append("sleep_report_ai.md")
+
+    send_email(subject, body, os.getenv("MAIL_TO", ""), attachments=attachments)
+
 
 
 if __name__ == "__main__":
