@@ -1,0 +1,10 @@
+# Secrets
+.env
+
+# Outputs
+sleep_export.csv
+sleep_report_ai.md
+
+# Python
+__pycache__/
+*.pyc
