@@ -68,6 +68,13 @@ def fail(msg: str):
     print(f"Error: {msg}")
     raise SystemExit(1)
 
+def to_madrid_iso(ts: int) -> str:
+    """Convierte epoch (seg) a ISO en Europe/Madrid, siempre igual en local y en Actions."""
+    if not ts:
+        return ""
+    utc_dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+    return utc_dt.astimezone(ZoneInfo("Europe/Madrid")).replace(microsecond=0).isoformat()
+
 def last_n_days_range(days: int = 7,tz_name: str = "Europe/Madrid") -> tuple[str, str]:
     """Devuelve FROM-TO en formato YYYY-MM-DD para los últimos N días INCLUYENDO hoy, en la zona horaria indicada.
     Para 7 días, hoy y los 6 anteriores."""
@@ -201,8 +208,9 @@ def get_band_data(auth_info: dict, from_date: str, to_date: str, output_file: st
         wake  = slp.get("wk", 0)  # awake minutes
 
         # Tiempos absolutos de inicio y fin (epoch seg → ISO8601)
-        start_iso = datetime.datetime.fromtimestamp(slp.get("st", 0)).isoformat()
-        stop_iso  = datetime.datetime.fromtimestamp(slp.get("ed", 0)).isoformat()
+        start_iso = to_madrid_iso(slp.get("st", 0))
+        stop_iso  = to_madrid_iso(slp.get("ed", 0))
+
 
         # --- Cálculo de REM a partir de tramos ---
         # Sumamos por separado los minutos de mode 7 y mode 8 para inspección,
