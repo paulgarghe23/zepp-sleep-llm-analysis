@@ -75,6 +75,16 @@ def last_n_days_range(days: int = 7,tz_name: str = "Europe/Madrid") -> tuple[str
     from_date = today - datetime.timedelta(days=days-1)
     return from_date.isoformat(), today.isoformat()
 
+def last_complete_week_range(tz_name: str = "Europe/Madrid") -> tuple[str, str]:
+    """
+    Devuelve el lunes-domingo de la SEMANA COMPLETA ANTERIOR (fechas YYYY-MM-DD).
+    Ej.: si hoy es miércoles 2025-09-10, devuelve 2025-09-01 a 2025-09-07.
+    """
+    today = datetime.datetime.now(tz=ZoneInfo(tz_name)).date()
+    week_start = today - datetime.timedelta(days=today.weekday() + 7)  # lunes anterior
+    week_end = week_start + datetime.timedelta(days=6)                 # domingo de esa semana
+    return week_start.isoformat(), week_end.isoformat()
+
 def mifit_auth_email(email: str, password: str) -> dict:
     """
     1) Login inicial con email/contraseña para obtener 'access' y 'country_code'
@@ -439,7 +449,8 @@ def send_email(subject: str, body: str, to_addrs, attachments: list[str] | None 
 
 def main():
     # Rango de ejemplo: ajusta a lo que necesites
-    FROM, TO = last_n_days_range(days=7, tz_name="Europe/Madrid") # últimos 7 días incluyendo hoy
+    FROM, TO = last_complete_week_range("Europe/Madrid") # semana completa anterior
+    #FROM, TO = last_n_days_range(7, "Europe/Madrid") # últimos 7 días incluyendo hoy
     print(f"[range] Using last week -> FROM={FROM}, TO={TO} (Madrid timezone)")
 
     # Login + fetch
