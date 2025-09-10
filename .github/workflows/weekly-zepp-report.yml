@@ -1,10 +1,11 @@
-name: Weekly Zepp Report (Wed 09:00 Madrid)
+name: Weekly Zepp Report (Wed 10:00 Madrid)
 
 on:
   schedule:
-    # GitHub usa UTC → 07:00 UTC = 09:00 en verano (CEST), 08:00 en invierno (CET)
-    - cron: "0 7 * * 3"
-  workflow_dispatch: {}  # opcional: permite lanzarlo a mano
+    # GitHub usa UTC.
+    # 08:00 UTC = 10:00 Madrid en verano (CEST) / 09:00 en invierno (CET).
+    - cron: "0 8 * * 3"
+  workflow_dispatch: {}  # para lanzarlo a mano
 
 jobs:
   run:
@@ -20,7 +21,7 @@ jobs:
 
       - name: Install deps
         run: |
-          pip install -r requirements.txt || true
+          pip install requests python-dotenv tabulate
 
       - name: Run script
         run: python main.py
