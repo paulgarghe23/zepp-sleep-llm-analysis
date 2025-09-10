@@ -1,51 +1,59 @@
-name: Weekly Zepp Sleep Report
+name: Weekly Zepp Report (Wed 09:00 Madrid)
 
 on:
+  # Dispara cada hora y filtramos por TZ para ejecutar solo Miércoles 09:00 Europe/Madrid
   schedule:
-    - cron: "0 7 * * 1"
+    - cron: "0 * * * *"
+  # Permite lanzarlo a mano para probar
   workflow_dispatch: {}
 
 jobs:
-  run-report:
+  run:
     runs-on: ubuntu-latest
-    env:
-      ZEPPEMAIL:       ${{ secrets.ZEPPEMAIL }}
-      ZEPP_PASSWORD:   ${{ secrets.ZEPP_PASSWORD }}
-      OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
-      SMTP_HOST:       ${{ secrets.SMTP_HOST }}
-      SMTP_PORT:       ${{ secrets.SMTP_PORT }}
-      SMTP_USER:       ${{ secrets.SMTP_USER }}
-      SMTP_PASS:       ${{ secrets.SMTP_PASS }}
-      MAIL_FROM:       ${{ secrets.MAIL_FROM }}
-      MAIL_TO:         ${{ secrets.MAIL_TO }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
+      - name: Set Europe/Madrid timezone
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
+          sudo ln -snf /usr/share/zoneinfo/Europe/Madrid /etc/localtime
+          echo "Europe/Madrid" | sudo tee /etc/timezone
+
+      - name: Guard — only run Wed 09:00 (Europe/Madrid)
+        id: guard
+        run: |
+          HOUR=$(date +%H)
+          DOW=$(date +%u)  # L=1 ... D=7
+          if [ "$HOUR" = "09" ] && [ "$DOW" = "3" ]; then
+            echo "run_now=true" >> $GITHUB_OUTPUT
+            echo "✅ Es miércoles 09:00 Madrid. Ejecutamos."
           else
-            pip install requests tabulate python-dotenv
+            echo "run_now=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No es miércoles 09:00 Madrid. Saltamos."
           fi
 
-      - name: Run script
-        run: python main.py
+      - name: Checkout
+        if: steps.guard.outputs.run_now == 'true'
+        uses: actions/checkout@v4
 
-      - name: Upload artifacts (CSV + report)
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Setup Python
+        if: steps.guard.outputs.run_now == 'true'
+        uses: actions/setup-python@v5
         with:
-          name: zepp-sleep-output
-          path: |
-            sleep_export.csv
-            sleep_report_ai.md
-          if-no-files-found: ignore
+          python-version: "3.11"
+
+      - name: Install deps
+        if: steps.guard.outputs.run_now == 'true'
+        run: |
+          pip install -r requirements.txt || true
+
+      - name: Run script
+        if: steps.guard.outputs.run_now == 'true'
+        run: python main.py
+        env:
+          ZEPPEMAIL: ${{ secrets.ZEPPEMAIL }}
+          ZEPP_PASSWORD: ${{ secrets.ZEPP_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO:   ${{ secrets.MAIL_TO }}
