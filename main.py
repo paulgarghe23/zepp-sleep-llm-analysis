@@ -292,12 +292,11 @@ def analyze_with_openai_from_rows(
     # === 2) System prompt: le dice al modelo "quién es" y QUÉ debe producir ===
     #   - Aquí fijas el comportamiento (coach de sueño) y el formato que quieres en la salida.
     system_prompt = (
-        "Eres un coach de sueño que quiere lo mejor para esta persona. Analiza una lista de diccionarios con las claves: "
-        "date, deepSleepTime, shallowSleepTime, wakeTime, start, stop, REMTime, naps. "
+        "Eres un coach de sueño experto y analítico. Analiza el sueño semanal en la lista de diccionarios con las claves: "
+        "date, deepSleepTime, shallowSleepTime, wakeTime (tiempo despierto durante la noche), start (comienzo del sueño), stop (final del sueño), REMTime, naps(siestas). "
         "Devuelve un informe semanal breve en español con: "
         "1) métricas clave y lo que significan: lo bueno y a mejorar, "
-        "2) incluye consistencia de acostarse/levantarse (menciona hora media y variabilidad), y lo que significa "
-        "3) 2 puntos fuertes y 2 a mejorar. Sé preciso, accionable, específico y usa cifras. "
+        "2) 2 puntos fuertes y 2 a mejorar. Sé preciso, accionable, específico usa cifras. "
         "Da recomendaciones específicas para este usuario, no genéricas: qué días lo hizo mejor y por qué, y qué días mejorar y cómo."
     )
 
