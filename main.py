@@ -105,13 +105,30 @@ def mifit_auth_email(email: str, password: str) -> dict:
     data = {
         "state": "REDIRECTION",
         "client_id": "HuaMi",
-        "redirect_uri": "https://s3-us-west-2.amazonws.com/hm-registration/successsignin.html",
+        "redirect_uri": "https://s3-us-west-2.amazonaws.com/hm-registration/successsignin.html",
         "token": "access",   # queremos obtener 'access' en la redirección
         "password": password,
     }
 
+    # Headers para parecer una app móvil real
+    headers = {
+        'User-Agent': 'Mi Fit/4.0.9 (iPhone; iOS 14.0; Scale/2.0)',
+        'Accept': 'application/json',
+        'Accept-Language': 'es-ES,es;q=0.9',
+        'Accept-Encoding': 'gzip, deflate',
+    }
+    
     # No seguimos la redirección: necesitamos leer la cabecera 'Location'
-    r = requests.post(auth_url, data=data, allow_redirects=False)
+    r = requests.post(auth_url, data=data, headers=headers, allow_redirects=False)
+    
+    # Manejo específico de rate limits
+    if r.status_code == 429:
+        retry_after = r.headers.get('Retry-After', 'desconocido')
+        print(f"❌ Rate limit alcanzado (429). Retry-After: {retry_after}")
+        print("💡 Sugerencia: La API de Huami puede tener límites diarios/semanales.")
+        print("   Intenta de nuevo en unas horas o mañana.")
+        raise SystemExit("Script detenido por rate limit")
+    
     r.raise_for_status()
 
     # Parseamos la URL de la cabecera Location para extraer la query string
