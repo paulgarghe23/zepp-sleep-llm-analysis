@@ -52,7 +52,6 @@ from email.message import EmailMessage  # clase para construir emails completos 
 load_dotenv()  # carga variables de .env si existe
 
 
-
 # ========= CREDENCIALES =========
 EMAIL = os.getenv("ZEPPEMAIL")
 PASSWORD = os.getenv("ZEPP_PASSWORD")
@@ -292,12 +291,12 @@ def analyze_with_openai_from_rows(
     # === 2) System prompt: le dice al modelo "quién es" y QUÉ debe producir ===
     #   - Aquí fijas el comportamiento (coach de sueño) y el formato que quieres en la salida.
     system_prompt = (
-        "Eres un coach de sueño experto y analítico. Analiza el sueño semanal en la lista de diccionarios con las claves: "
+        "Eres un experto en sueño analítico. Analiza el sueño semanal en la lista de diccionarios con las claves: "
         "date, deepSleepTime, shallowSleepTime, wakeTime (tiempo despierto durante la noche), start (comienzo del sueño), stop (final del sueño), REMTime, naps(siestas). "
         "Devuelve un informe semanal breve en español con: "
         "1) métricas clave y lo que significan: lo bueno y a mejorar, "
-        "2) 2 puntos fuertes y 2 a mejorar. Sé preciso, accionable, específico usa cifras. "
-        "Da recomendaciones específicas para este usuario, no genéricas: qué días lo hizo mejor y por qué, y qué días mejorar y cómo."
+        "2) 2 puntos fuertes y 2 a mejorar. Sé preciso, accionable, específico, usa cifras. "
+        "Da recomendaciones específicas para este usuario, no genéricas: qué días lo hizo mejor y por qué, y qué días mejorar y cómo. Menciona el día de la semana (lunes, martes, etc.)"
     )
 
     # === 3) Payload de USUARIO: tus datos reales que el modelo debe analizar ===
