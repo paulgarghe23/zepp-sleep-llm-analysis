@@ -69,4 +69,4 @@ The script will:
 
 ## Note
 
-This script uses an unofficial API. Use at your own discretion and ensure you comply with Mi Fit/Zepp's terms of service.
+Based on community reverse-engineering efforts of the unofficial Zepp / Mi Fit API.
