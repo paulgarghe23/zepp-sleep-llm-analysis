@@ -8,3 +8,5 @@ sleep_report_ai.md
 # Python
 __pycache__/
 *.pyc
+
+.zepp_device_id

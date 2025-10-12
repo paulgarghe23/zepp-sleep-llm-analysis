@@ -47,10 +47,14 @@ from dotenv import load_dotenv  # pip install python-dotenv
 import smtplib                # librería estándar para hablar con servidores SMTP (enviar correos)
 import mimetypes              # para adivinar el tipo de archivo de los adjuntos
 from email.message import EmailMessage  # clase para construir emails completos (texto + adjuntos)
+import uuid
+import time
+import hashlib
 
 
 load_dotenv()  # carga variables de .env si existe
 
+DEVICE_ID_FILE = ".zepp_device_id"  # fichero donde guardamos un device_id persistente
 
 # ========= CREDENCIALES =========
 EMAIL = os.getenv("ZEPPEMAIL")
@@ -91,64 +95,106 @@ def last_complete_week_range(tz_name: str = "Europe/Madrid") -> tuple[str, str]:
     week_end = week_start + datetime.timedelta(days=6)                 # domingo de esa semana
     return week_start.isoformat(), week_end.isoformat()
 
+def _get_or_create_device_id() -> str:
+    if os.path.exists(DEVICE_ID_FILE):
+        try:
+            did = open(DEVICE_ID_FILE, "r", encoding="utf-8").read().strip()
+            if did: return did
+        except Exception:
+            pass
+    did = uuid.uuid4().hex
+    try:
+        open(DEVICE_ID_FILE, "w", encoding="utf-8").write(did)
+    except Exception:
+        pass
+    return did
+
 def mifit_auth_email(email: str, password: str) -> dict:
-    """
-    1) Login inicial con email/contraseña para obtener 'access' y 'country_code'
-       desde la cabecera Location (sin seguir la redirección).
-    """
     print(f"[login] Logging in with email {email}")
 
-    # Endpoint que emite la redirección con los parámetros en la URL
-    auth_url = f"https://api-user.huami.com/registrations/{urllib.parse.quote(email)}/tokens"
+    auth_url   = "https://api-user.zepp.com/v2/registrations/tokens"
+    device_id  = _get_or_create_device_id()
+    sha1_pwd   = hashlib.sha1(password.encode("utf-8")).hexdigest()
+    user_keys  = ["account", "login_token", "loginname"]
+    pwd_vars   = [("sha1", sha1_pwd), ("raw", password)]
 
-    # Payload requerido por el backend de Huami en este flujo
-    data = {
-        "state": "REDIRECTION",
-        "client_id": "HuaMi",
-        "redirect_uri": "https://s3-us-west-2.amazonaws.com/hm-registration/successsignin.html",
-        "token": "access",   # queremos obtener 'access' en la redirección
-        "password": password,
-    }
-
-    # Headers para parecer una app móvil real
     headers = {
-        'User-Agent': 'Mi Fit/4.0.9 (iPhone; iOS 14.0; Scale/2.0)',
-        'Accept': 'application/json',
-        'Accept-Language': 'es-ES,es;q=0.9',
-        'Accept-Encoding': 'gzip, deflate',
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "User-Agent": "ZeppLife/6.3.1 (iPhone; iOS 17.4.1)",
+        "cv": "6.3.1",
+        "appplatform": "ios_phone",
+        "lang": "en-US",
+        "timezone": "Europe/Madrid",
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "app_name": "com.xiaomi.hm.health",
+        "callid": str(int(time.time() * 1000)),
+        "X-Request-Id": str(uuid.uuid4()).upper(),
+        "os_version": "17.4.1",
+        "device_id": device_id,
+        "source": "com.xiaomi.hm.health",
     }
-    
-    # No seguimos la redirección: necesitamos leer la cabecera 'Location'
-    r = requests.post(auth_url, data=data, headers=headers, allow_redirects=False)
-    
-    # Manejo específico de rate limits
-    if r.status_code == 429:
-        retry_after = r.headers.get('Retry-After', 'desconocido')
-        print(f"❌ Rate limit alcanzado (429). Retry-After: {retry_after}")
-        print("💡 Sugerencia: La API de Huami puede tener límites diarios/semanales.")
-        print("   Intenta de nuevo en unas horas o mañana.")
-        raise SystemExit("Script detenido por rate limit")
-    
-    r.raise_for_status()
 
-    # Parseamos la URL de la cabecera Location para extraer la query string
-    loc = urllib.parse.urlparse(r.headers.get("location", ""))
-    q = urllib.parse.parse_qs(loc.query)
+    last_error = None
 
-    # Validaciones mínimas
-    if "access" not in q:
-        fail("No access token in response")
-    if "country_code" not in q:
-        fail("No country_code in response")
+    for k in user_keys:
+        for tag, pwd in pwd_vars:
+            data = {
+                "client_id": "HuaMi",
+                "password": pwd,
+                "redirect_uri": "https://s3-us-west-2.amazonaws.com/hm-registration/successsignin.html",
+                "token": "access",
+                "device_id": device_id,
+                "app_name": "com.xiaomi.hm.health",
+                # "country_code": "ES",  # descomenta si lo exige tu cuenta
+            }
+            data[k] = email
 
-    print("[login] Obtained access token; exchanging for app token...")
+            print(f"[login] Trying user-field='{k}' with password='{tag}'")
+            try:
+                r = requests.post(auth_url, data=data, headers=headers, allow_redirects=False, timeout=15)
+            except requests.RequestException as e:
+                last_error = f"request error {k}/{tag}: {e}"
+                print("[login] Request exception:", e)
+                continue
 
-    # 2) Intercambiamos por credenciales completas (app_token, user_id, ...)
-    return mifit_login_with_token({
-        "grant_type": "access_token",
-        "country_code": q["country_code"],  # viene como lista; el endpoint lo tolera
-        "code": q["access"],                # idem
-    })
+            if r.status_code == 429:
+                print("❌ 429 Rate limit. Retry-After:", r.headers.get("Retry-After"))
+                raise SystemExit("Script detenido por rate limit (429)")
+
+            loc_hdr = r.headers.get("Location") or r.headers.get("location", "")
+            if loc_hdr:
+                loc = urllib.parse.urlparse(loc_hdr)
+                q = urllib.parse.parse_qs(loc.query)
+                access = q.get("access")
+                country_code = q.get("country_code")
+                if access and country_code:
+                    print("[login] Access token found in Location; exchanging...")
+                    return mifit_login_with_token({
+                        "grant_type": "access_token",
+                        "country_code": country_code,  # listas
+                        "code": access,
+                    })
+                else:
+                    print("[login] Location present but missing access/country_code:", loc_hdr)
+
+            if r.status_code >= 400:
+                # NO raise_for_status(): seguimos probando variantes
+                body_snip = ""
+                try: body_snip = r.text[:800]
+                except: body_snip = "<no body>"
+                print(f"[login] {r.status_code} for {k}/{tag}")
+                print("HEADERS:", dict(r.headers))
+                print("BODY:", body_snip)
+                last_error = f"status {r.status_code} for {k}/{tag}"
+                continue
+
+            print(f"[login] Unexpected {r.status_code} without Location; trying next variant.")
+
+    raise RuntimeError(
+        "Failed to obtain access token after trying all variants. "
+        f"Last error: {last_error or 'none'}"
+    )
 
 def mifit_login_with_token(login_data: dict) -> dict:
     """
