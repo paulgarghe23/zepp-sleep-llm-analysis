@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zepp Sleep Analysis - Overview Architecture</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f4f8;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 50px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 900px;
+        }
+        h1 {
+            color: #1e293b;
+            text-align: center;
+            margin-bottom: 50px;
+            font-size: 2em;
+        }
+        .diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+        }
+        .box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 12px;
+            font-size: 1.3em;
+            font-weight: 600;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 300px;
+        }
+        .arrow {
+            font-size: 2em;
+            color: #64748b;
+        }
+        .row {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            justify-content: center;
+        }
+        .box-small {
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 500;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .box-github {
+            background: #24292e;
+        }
+        .box-zepp {
+            background: #10b981;
+        }
+        .box-ai {
+            background: #f59e0b;
+        }
+        .box-email {
+            background: #22c55e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>😴 Zepp Sleep Analysis</h1>
+        <p style="text-align: center; color: #64748b; margin-bottom: 30px; font-size: 1.1em;">Overview Architecture</p>
+        <div class="diagram">
+            <div class="box box-github">⚙️ GitHub Actions</div>
+            <div class="arrow">↓</div>
+            <div class="box">🐍 Python Script</div>
+            <div class="arrow">↓</div>
+            <div class="row">
+                <div class="box-small box-zepp">📱 Zepp API</div>
+                <div class="box-small box-ai">🤖 OpenAI</div>
+            </div>
+            <div class="arrow">↓</div>
+            <div class="box box-email">✉️ Email Report</div>
+        </div>
+    </div>
+</body>
+</html>
+

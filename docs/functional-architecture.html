@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zepp Sleep Analysis - Functional Architecture</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f4f8;
+            padding: 30px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 50px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #1e293b;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        .subtitle {
+            text-align: center;
+            color: #64748b;
+            margin-bottom: 50px;
+            font-size: 1.1em;
+        }
+        .main-flow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .flow-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+        }
+        .box {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            padding: 20px 35px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            text-align: center;
+            min-width: 280px;
+        }
+        .box-github { 
+            background: linear-gradient(135deg, #24292e 0%, #1a1e22 100%);
+            font-size: 1.4em;
+            padding: 25px 45px;
+        }
+        .box-script { 
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+        .box-auth { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .box-api { 
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+        .box-ai { 
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+        .box-email { 
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+        .arrow {
+            font-size: 2em;
+            color: #64748b;
+            margin: 5px 0;
+        }
+        .detail-text {
+            font-size: 0.85em;
+            color: rgba(255,255,255,0.85);
+            margin-top: 8px;
+            font-weight: 400;
+        }
+        .branch {
+            background: #f8fafc;
+            border: 3px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px 0;
+            width: 100%;
+            max-width: 900px;
+        }
+        .branch-header {
+            text-align: center;
+            color: #1e293b;
+            font-size: 1.2em;
+            font-weight: 700;
+            margin-bottom: 25px;
+        }
+        .branch-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .branch-item {
+            background: white;
+            border: 2px solid #cbd5e1;
+            border-left: 5px solid #10b981;
+            border-radius: 10px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .branch-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .branch-icon {
+            font-size: 1.5em;
+            margin-bottom: 8px;
+        }
+        .branch-name {
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 5px;
+            font-size: 1.05em;
+        }
+        .branch-desc {
+            font-size: 0.9em;
+            color: #64748b;
+            line-height: 1.4;
+        }
+        .output-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        .output-label {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            color: #0369a1;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 0.95em;
+            font-weight: 600;
+            border: 2px solid #7dd3fc;
+        }
+        .output-arrow {
+            font-size: 1.8em;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>😴 Zepp Sleep Analysis</h1>
+        <p class="subtitle">Functional Architecture</p>
+        
+        <div class="main-flow">
+            <!-- GitHub Actions -->
+            <div class="flow-step">
+                <div class="box box-github">⚙️ GitHub Actions</div>
+                <div class="detail-text">Scheduled: Wed 10:00 Madrid (cron: 0 8 * * 3 UTC)</div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Python Script -->
+            <div class="flow-step">
+                <div class="box box-script">
+                    🐍 Python Script (main.py)
+                    <div class="detail-text">Calculate date range (last complete week)</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Authentication -->
+            <div class="flow-step">
+                <div class="box box-auth">
+                    🔐 Authentication
+                    <div class="detail-text">Email/password → access token → app_token + user_id</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Data Fetch -->
+            <div class="flow-step">
+                <div class="box box-api">
+                    📊 Fetch Sleep Data
+                    <div class="detail-text">GET /v1/data/band_data.json from Zepp API</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Data Processing -->
+            <div class="branch">
+                <div class="branch-header">🔄 Data Processing</div>
+                <div class="branch-list">
+                    <div class="branch-item">
+                        <div class="branch-icon">🔓</div>
+                        <div class="branch-name">Decode Base64</div>
+                        <div class="branch-desc">Decode summary field from base64 to JSON</div>
+                    </div>
+                    <div class="branch-item">
+                        <div class="branch-icon">📈</div>
+                        <div class="branch-name">Extract Sleep Metrics</div>
+                        <div class="branch-desc">Deep sleep, light sleep, wake time, REM (mode 7+8)</div>
+                    </div>
+                    <div class="branch-item">
+                        <div class="branch-icon">🕐</div>
+                        <div class="branch-name">Convert Timestamps</div>
+                        <div class="branch-desc">Epoch seconds → ISO format (Madrid timezone)</div>
+                    </div>
+                    <div class="branch-item">
+                        <div class="branch-icon">💾</div>
+                        <div class="branch-name">Export CSV</div>
+                        <div class="branch-desc">Save to sleep_export.csv with all metrics</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- AI Analysis -->
+            <div class="flow-step">
+                <div class="box box-ai">
+                    🤖 OpenAI Analysis (Optional)
+                    <div class="detail-text">gpt-4o-mini generates sleep insights and recommendations</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Save Analysis -->
+            <div class="flow-step">
+                <div class="box box-script">
+                    📝 Save Analysis
+                    <div class="detail-text">Write AI report to sleep_report_ai.md</div>
+                </div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <!-- Email -->
+            <div class="flow-step">
+                <div class="box box-email">
+                    ✉️ Send Email Report
+                    <div class="detail-text">SMTP with CSV and markdown attachments</div>
+                </div>
+            </div>
+            
+            <!-- Output Files -->
+            <div class="output-section">
+                <div class="output-label">📁 Output Files</div>
+                <div class="output-arrow">→</div>
+                <div class="box box-script" style="font-size: 0.95em; padding: 15px 25px;">
+                    sleep_export.csv<br>
+                    sleep_report_ai.md
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
